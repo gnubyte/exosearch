@@ -1,0 +1,13 @@
+{
+    "servers": [
+      {
+        "url": "http://server1/api/upload",
+        "apiKey": "api_key_server1"
+      },
+      {
+        "url": "http://server2/api/upload",
+        "apiKey": "api_key_server2"
+      }
+    ]
+  }
+  
