@@ -8,12 +8,31 @@ services:
       - '3000:3000'
     depends_on:
       - mongodb
+    volumes:
+      - semaphores:/app/semaphore
   mongodb:
     image: mongo
     ports:
       - '27017:27017'
     volumes:
       - mongo-data:/data/db
-
+  mongo-express:
+    image: mongo-express
+    environment:
+        - ME_CONFIG_MONGODB_SERVER=mongodb
+        - ME_CONFIG_MONGODB_PORT=27017
+        - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
+        - ME_CONFIG_BASICAUTH_USERNAME=adminlogin
+        - ME_CONFIG_BASICAUTH_PASSWORD=Veryadminned
+    #    - ME_CONFIG_MONGODB_AUTH_DATABASE=admin
+    #    - ME_CONFIG_MONGODB_AUTH_USERNAME=${MONGO_ROOT_USER}
+    #    - ME_CONFIG_MONGODB_AUTH_PASSWORD=${MONGO_ROOT_PASSWORD}
+    depends_on:
+        - mongodb
+    links:
+        - mongodb
+    ports:
+      - "8081:8081"
 volumes:
   mongo-data:
+  semaphores:

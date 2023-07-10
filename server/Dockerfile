@@ -1,5 +1,5 @@
 # Base image
-FROM node:20.2.0-alpine
+FROM node:20.2.0-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -7,6 +7,8 @@ WORKDIR /app
 # Copy package.json and package-lock.json
 COPY package.json package-lock.json ./
 COPY .env ./
+#COPY ./docs ./docs
+#COPY ./website/build/test-site ./website
 
 # Install dependencies
 RUN npm ci --only=production
