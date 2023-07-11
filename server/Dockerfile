@@ -1,6 +1,6 @@
 # Base image
 FROM node:20.2.0-alpine AS builder
-
+ENV BLOOM_FILTER_SIZE=1024
 # Set working directory
 WORKDIR /app
 

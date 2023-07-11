@@ -12,5 +12,19 @@ const loginView = async (req, res) => {
 const logoutView = async (req, res) => {
     res.sendFile(path.join(__dirname, '../views/logout.html'));
 }
+const uploadView = async (req, res) => {
+    res.sendFile(path.join(__dirname, '../views/upload.html'));
+}
+const searchView = async (req, res) => {
+    res.sendFile(path.join(__dirname, '../views/search.html'));
+}
 
-module.exports = { dashboardView, landingView, loginView, logoutView};
+module.exports = {
+    dashboardView,
+    landingView,
+    loginView,
+    logoutView,
+    uploadView,
+    searchView
+};
+

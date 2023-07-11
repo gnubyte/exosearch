@@ -11,7 +11,7 @@ const generalRoutes = require('./routes/generalRoutes');
 require('dotenv').config();
 
 
-
+//write unit tests for these
 const app = express();
 const PORT = 3000;
 console.log(process.env);
@@ -48,11 +48,15 @@ const swaggerOptions = {
     },
     basePath: '/',
   },
-  apis: ['./routes/*.js'], // Path to the API routes files
+  apis: ['./api/routes/*.js'], // Path to the API routes files
 };
 const swaggerSpec = swaggerJsDoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+// Swagger documentation route
+//const swaggerDocument = require('./swagger.json');
+
+//app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Start the server
 app.listen(PORT, () => {

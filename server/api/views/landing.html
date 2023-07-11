@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Search Data</title>
+  <titleExosearch/title>
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
 </head>
 <body>
   <nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <a class="navbar-brand" href="#">Search Data</a>
+    <a class="navbar-brand" href="#">Exosearch</a>
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav">
         <li class="nav-item">
@@ -21,10 +21,125 @@
 
   <div class="jumbotron">
     <div class="container">
-      <h1 class="display-4">Easily search your data</h1>
+      <h1>Exosearch</h1>
+      <i id="jokeDiv">To the stars and beyond!</i>
+      <h2 class="display-4">Easily gather, search and analyze your data.</h2>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+        <!-- Astronaut Body -->
+        <circle cx="100" cy="100" r="80" fill="#F2D3E8" />
+      
+        <!-- Astronaut Helmet -->
+        <circle cx="100" cy="100" r="70" fill="#F9E6F4" />
+      
+        <!-- Astronaut Visor -->
+        <path d="M70,100 Q100,140 130,100" fill="none" stroke="#D3B0C7" stroke-width="5" />
+      
+        <!-- Astronaut Face -->
+        <circle cx="100" cy="80" r="12" fill="#F5C2D8" />
+      
+        <!-- Astronaut Eyes -->
+        <circle cx="92" cy="80" r="3" fill="#473043" />
+        <circle cx="108" cy="80" r="3" fill="#473043" />
+      
+        <!-- Astronaut Mouth -->
+        <path d="M95,90 Q100,95 105,90" fill="none" stroke="#473043" stroke-width="2" />
+      
+        <!-- Magnifying Glass Handle -->
+        <path d="M80,30 Q90,20 100,30 Q110,20 120,30" fill="none" stroke="#D3B0C7" stroke-width="3" />
+      
+        <!-- Magnifying Glass Lens -->
+        <circle cx="110" cy="40" r="18" fill="#F5C2D8" />
+      
+        <!-- Stars in Space -->
+        <circle cx="40" cy="40" r="2" fill="#E3C0D3" />
+        <circle cx="160" cy="50" r="1.5" fill="#E3C0D3" />
+        <circle cx="120" cy="130" r="2" fill="#E3C0D3" />
+        <!-- Add more stars as needed -->
+      
+        <!-- Constellation -->
+        <path d="M30,150 Q60,130 80,140 Q100,150 130,130" fill="none" stroke="#D3B0C7" stroke-width="2" />
+        <!-- Add more paths to form a constellation if desired -->
+      </svg>
+      
     </div>
   </div>
 
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"></script>
+  <script>
+const puns = [
+  "I'm a master of CTRL+F-ortune!",
+  "Searching for data is my favorite pawsuit.",
+  "I log you from the bottom of my heart.",
+  "Finding a needle in a data haystack? Piece of cake!",
+  "I'm on a log-file hunt, and I'm not lion!",
+  "I'm the Sherlock Holmes of log files.",
+  "Searching through data is my secret debugging power.",
+  "Log files? More like love files!",
+  "Looking for errors is my favorite form of hide and seek.",
+  "I'm the search ninja in the digital world.",
+  "Finding that bug was an eureka-log moment!",
+  "I can dig through logs with my virtual shovel.",
+  "Log files never escape my watchful eye.",
+  "Searching through data is my second nature.",
+  "I can log-dance my way to the truth.",
+  "Data search is my specialty. Call me the Searchmeister!",
+  "No log file is too elusive for me.",
+  "I'm always up for a log-ical challenge.",
+  "Log searching: it's like finding a unicorn!",
+  "I'm a data detective, searching for clues.",
+  "I'm on a never-ending quest for log enlightenment.",
+  "I have a black belt in data search-fu.",
+  "Data search makes my heart skip a log.",
+  "Finding the problem is like finding a log in a stack.",
+  "Log files? I find them fascinating!",
+  "I'm a log whisperer. They tell me their secrets.",
+  "Searching through data gets my geeky senses tingling.",
+  "I find joy in diving deep into log oceans.",
+  "I'm a data archaeologist, unearthing hidden insights.",
+  "Log files are my playground. Let the games begin!",
+  "I'm a log explorer, charting unknown territories.",
+  "Search algorithms and I? We're a perfect match!",
+  "Data searching is like a thrilling roller coaster ride.",
+  "I'm the data hunter, tracking down information.",
+  "Finding log errors is my favorite treasure hunt.",
+  "I can sniff out data issues like a pro.",
+  "Log files and I have an unbreakable bond.",
+  "I'm the log-file magician. Watch me pull insights out of my hat!",
+  "Data search is my superpower. No cape required.",
+  "I'm a log adventurer, discovering hidden gems.",
+  "I search through data like a hot knife through butter.",
+  "Finding log anomalies is my kind of brain teaser.",
+  "Log files are my daily dose of excitement.",
+  "I'm a log spelunker, exploring the depths of information.",
+  "Data search is my calling. I've been log-ically chosen.",
+  "Finding patterns in logs is my cup of tea.",
+  "I'm the log-file whisperer, hearing secrets in every line.",
+  "Data search is like an endless puzzle waiting to be solved.",
+  "Log hunting: it's like a thrilling safari!",
+  "I'm the log tracker, following trails of information.",
+  "Data search is my passion, my one true log-ve.",
+  "Log files never slip through my fingers.",
+  "I have a sixth sense for log data.",
+  "I'm a data explorer, blazing new paths of discovery.",
+  "Searching through logs is my version of a digital treasure hunt.",
+  "I'm the log guru, unraveling the mysteries of data.",
+  "Data search is my secret sauce. It makes everything taste better!",
+  "Log files are my allies in the quest for knowledge.",
+  "I can find the signal in the log-file noise.",
+  "I'm a log-file detective, cracking cases one line at a time.",
+  "Data search is like a never-ending maze of possibilities.",
+  "I have a magnetic attraction to log files.",
+  "I'm a log ninja, stealthily finding what others miss.",
+  "Finding the culprit in the log forest is my specialty.",
+];
+function getRandomPun() {
+  const randomIndex = Math.floor(Math.random() * puns.length);
+  return puns[randomIndex];
+}
+const randomPun = getRandomPun();
+const divElement = document.getElementById("jokeDiv");
+divElement.textContent = randomPun;
+
+  </script>
 </body>
 </html>

@@ -2,20 +2,24 @@ version: '3'
 services:
   textstore-api:
     build:
-      context: .
+      context: ./server
       dockerfile: Dockerfile
     ports:
       - '3000:3000'
     depends_on:
       - mongodb
     volumes:
-      - semaphores:/app/semaphore
+      - ./semaphores:/app/semaphore
+    environment:
+     - MONGO_DB=mongodb://mongodb:27017/textstore
+     - ACCESS_TOKEN_SECRET=anExampleSecret
+     - BLOOM_FILTER_SIZE=1024
   mongodb:
     image: mongo
     ports:
       - '27017:27017'
     volumes:
-      - mongo-data:/data/db
+      - ./mongo-data:/data/db
   mongo-express:
     image: mongo-express
     environment:

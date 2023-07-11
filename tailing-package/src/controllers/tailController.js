@@ -2,6 +2,13 @@ const fs = require('fs');
 const readline = require('readline');
 const uploadController = require('./uploadController');
 const chunkUpload = require('../utils/chunkUpload');
+const crypto = require('crypto');
+
+const log = (message) => {
+  fs.appendFileSync('runtime.log', `${new Date().toISOString()} - ${message}\n`);
+};
+
+const CHUNK_SIZE = 10000;
 
 const startTailing = (inputConfigPath, outputConfigPath) => {
   const inputConfigFiles = fs.readdirSync(inputConfigPath);
@@ -14,26 +21,54 @@ const startTailing = (inputConfigPath, outputConfigPath) => {
     const outputFilePath = `${outputConfigPath}/${inputConfig.output}`;
     const outputConfig = JSON.parse(fs.readFileSync(outputFilePath, 'utf8'));
 
-    tailAndUploadFile(inputConfig.file, inputConfig.delimiter, outputConfig.servers);
+    const processedData = loadProcessedData(inputConfig.file);
+    tailAndUploadFile(inputConfig.file, inputConfig.delimiter, outputConfig.servers, processedData);
   }
 };
 
-const tailAndUploadFile = (filePath, delimiter, servers) => {
+const loadProcessedData = (filePath) => {
+  const hashFilePath = `${filePath}.hash`;
+  if (fs.existsSync(hashFilePath)) {
+    return fs.readFileSync(hashFilePath, 'utf8').trim();
+  }
+  return '';
+};
+
+const saveProcessedData = (filePath, hash) => {
+  const hashFilePath = `${filePath}.hash`;
+  fs.writeFileSync(hashFilePath, hash);
+};
+
+const tailAndUploadFile = (filePath, delimiter, servers, processedData) => {
   const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
   const rl = readline.createInterface({ input: stream });
 
   let buffer = '';
   let keywords = [];
 
+  let lineCount = 0;
+
   rl.on('line', async (line) => {
     buffer += line + '\n';
-    const chunks = buffer.split(delimiter);
-    buffer = chunks.pop();
+    lineCount++;
 
-    const dataChunks = chunkUpload(chunks);
+    if (lineCount >= CHUNK_SIZE) {
+      const chunks = buffer.split(delimiter);
+      buffer = chunks.pop();
 
-    for (const server of servers) {
-      await uploadChunks(dataChunks, server, keywords);
+      const dataChunks = chunkUpload(chunks);
+
+      for (const server of servers) {
+        try {
+          await uploadChunks(dataChunks, server, keywords);
+          log(`Uploaded ${dataChunks.length} chunk(s) to server: ${server.url}`);
+        } catch (error) {
+          log(`Failed to upload data to server: ${server.url}`);
+          log(`Error: ${error.message}`);
+        }
+      }
+
+      lineCount = 0;
     }
   });
 
@@ -41,7 +76,18 @@ const tailAndUploadFile = (filePath, delimiter, servers) => {
     const dataChunks = chunkUpload([buffer]);
 
     for (const server of servers) {
-      await uploadChunks(dataChunks, server, keywords);
+      try {
+        await uploadChunks(dataChunks, server, keywords);
+        log(`Uploaded last chunk to server: ${server.url}`);
+      } catch (error) {
+        log(`Failed to upload data to server: ${server.url}`);
+        log(`Error: ${error.message}`);
+      }
+    }
+
+    const hash = crypto.createHash('md5').update(buffer).digest('hex');
+    if (hash !== processedData) {
+      saveProcessedData(filePath, hash);
     }
   });
 };
@@ -53,7 +99,11 @@ const uploadChunks = async (dataChunks, server, keywords) => {
     const data = dataChunks[i];
     const isLastChunk = i === dataChunks.length - 1;
 
-    await uploadController.uploadData(data, server, keywords, isLastChunk);
+    try {
+      await uploadController.uploadData(data, server, keywords, isLastChunk);
+    } catch (error) {
+      throw new Error(`Failed to upload data to server: ${server.url}`);
+    }
   }
 };
 

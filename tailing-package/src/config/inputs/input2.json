@@ -1,5 +1,7 @@
 {
     "file": "path/to/file2.txt",
-    "delimiter": "\t"
+    "delimiter": "\t",
+    "index": "index2",
+    "source": "file2.txt"
   }
   

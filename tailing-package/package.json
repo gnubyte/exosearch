@@ -3,10 +3,10 @@
     "version": "1.0.0",
     "description": "Node.js package for tailing files and streaming data to the API",
     "scripts": {
-      "start": "node src/index.js"
+        "start": "node src/index.js"
     },
     "dependencies": {
-      "axios": "^0.24.0"
+        "axios": "^0.24.0",
+        "node-fetch": "^3.3.1"
     }
-  }
-  
+}

@@ -5,7 +5,7 @@ const textSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  fileId: String,
+  name: String,
   host: {
     type: String,
     required: true
@@ -15,10 +15,6 @@ const textSchema = new mongoose.Schema({
     required: true
   },
   data: Buffer,
-  bloomFilter: {
-    type: Object,
-    required: true
-  },
   addedAt: {
     type: Date,
     default: Date.now

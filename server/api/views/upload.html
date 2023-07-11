@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>File Upload</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.0/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.css">
+</head>
+<body>
+  <div class="container mt-5">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <a class="navbar-brand" href="#">Exosearch</a>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav mr-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="/upload">Upload Files</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/search">Search</a>
+          </li>
+        </ul>
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="/settings"><i class="fas fa-cog">Settings</i></a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/logout">logout</a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+
+    <form id="uploadForm">
+      <div class="form-group">
+        <label for="index">Index:</label>
+        <input type="text" class="form-control" id="index" name="index" placeholder="Enter index">
+      </div>
+      <div class="form-group">
+        <label for="source">Source:</label>
+        <input type="text" class="form-control" id="source" name="source" placeholder="Enter source">
+      </div>
+      <div class="dropzone" id="dropzoneForm"></div>
+      <button type="button" class="btn btn-primary" id="uploadButton">Upload</button>
+    </form>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.10.2/umd/popper.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.0/js/bootstrap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.js"></script>
+  <script>
+    Dropzone.autoDiscover = false;
+
+    $(document).ready(function() {
+      var myDropzone = new Dropzone("#dropzoneForm", {
+        url: "/api/uploads/upload",
+        paramName: "file",
+        maxFiles: 1,
+        acceptedFiles: ".json,.xml,.html,.rtf,.txt,.ini,.log",
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+          },
+        autoProcessQueue: false,
+        init: function() {
+          var dropzoneForm = this;
+
+          // Add additional form data to the request
+          dropzoneForm.on("sending", function(file, xhr, formData) {
+            var index = $("#index").val();
+            var source = $("#source").val();
+            formData.append("index", index);
+            formData.append("source", source);
+          });
+
+          // Handle successful file upload
+          dropzoneForm.on("success", function(file, response) {
+            console.log("File uploaded successfully.", response);
+          });
+
+          // Handle failed file upload
+          dropzoneForm.on("error", function(file, response) {
+            console.error("File upload failed.", response);
+          });
+        }
+      });
+
+      // Handle the click event on the Upload button
+      $("#uploadButton").on("click", function(e) {
+        e.preventDefault();
+        myDropzone.processQueue();
+      });
+    });
+  </script>
+</body>
+</html>

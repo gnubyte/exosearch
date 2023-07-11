@@ -1,68 +1,96 @@
 const mongoose = require('mongoose');
-const Grid = require('gridfs-stream');
-const { createReadStream } = require('fs');
-const { promisify } = require('util');
-const { BloomFilter } = require('bloom-filters');
-
 const TextModel = require('../models/textModel');
-
 const db = mongoose.connection.db;
-Grid.mongo = mongoose.mongo;
+const crypto = require('crypto');
+
+// Define Bloom filter parameters
+const bloomFilterSize = process.env.BLOOM_FILTER_SIZE;
+const numHashFunctions = 4;
+
+
+// Bloom filter generation function
+function generateBloomFilter(text, size, numHashFunctions) {
+  const bitArray = new Array(size).fill(false);
+
+  const hashFunctions = Array.from({ length: numHashFunctions }, (_, index) => {
+    return (item) => {
+      const hash = crypto.createHash('sha1').update(item + index.toString()).digest('hex');
+      return parseInt(hash, 16) % process.env.BLOOM_FILTER_SIZE;
+    };
+  });
+
+  const add = (item) => {
+    for (let i = 0; i < numHashFunctions; i++) {
+      const hash = hashFunctions[i](item);
+      bitArray[hash] = true;
+    }
+  };
+
+  const contains = (item) => {
+    for (let i = 0; i < numHashFunctions; i++) {
+      const hash = hashFunctions[i](item);
+      if (!bitArray[hash]) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const words = text.toLowerCase().match(/\w+/g);
+  if (words) {
+    words.forEach((word) => {
+      add(word);
+    });
+  }
+
+  return {
+    size: size,
+    bitArray: bitArray,
+    hashFunctions: hashFunctions,
+    add: add,
+    contains: contains,
+  };
+}
+
 
 const uploadFile = async (req, res) => {
-  const { index, source, host } = req.body;
-  const { file } = req.files;
-
-  const gfs = Grid(db);
-  const writestream = gfs.createWriteStream({ filename: file.name, metadata: { source, host, index } });
-
-  // Create a promise-based version of `stream.pipeline`
-  const pipeline = promisify(require('stream').pipeline);
-
   try {
-    await pipeline(file.data, writestream);
+    const { index } = req.body;
 
-    // Generate and store Bloom filter
-    let textModel = await TextModel.findOne({ index });
-    if (!textModel) {
-      textModel = new TextModel({ index });
-    }
+    // Use a different collection if index is specified
+    const collectionName = index ? `files_${index}` : 'files';
+    const Collection = mongoose.connection.collection(collectionName);
 
-    const bloomFilter = await generateBloomFilter(file.path);
-    textModel.source = source;
-    textModel.host = host;
-    textModel.file = file.name;
-    textModel.bloomFilter = bloomFilter;
-    await textModel.save();
+    // Convert uploaded file to Bloom filter
+    const fileBuffer = req.file.buffer;
+    const fileData = fileBuffer.toString();
+    const bloomFilter = generateBloomFilter(fileData, bloomFilterSize, numHashFunctions);
 
-    res.status(200).json({ message: 'File uploaded successfully.' });
+    // Store file data and Bloom filter in MongoDB
+    const file = new TextModel({
+      index: "default",
+      name: req.file.originalname,
+      data: fileBuffer,
+      host: req.ip,
+      source: req.body.source || "default"
+    });
+    await file.save();
+
+    // Store Bloom filter in a separate collection
+    await Collection.insertOne({
+      name: req.file.originalname,
+      bloomFilter: {
+        size: bloomFilter.size,
+        bitArray: bloomFilter.bitArray,
+        hashFunctions: bloomFilter.hashFunctions.map((hashFn) => hashFn.toString()),
+      },
+    });
+
+    res.status(200).send('File uploaded successfully!');
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'An error occurred while uploading the file.' });
+    res.status(500).send('Error uploading file.');
   }
-};
-
-const generateBloomFilter = async (filePath) => {
-  const bloomFilter = new BloomFilter(1000, 0.1);
-
-  return new Promise((resolve, reject) => {
-    const fileStream = createReadStream(filePath);
-
-    fileStream.on('data', (data) => {
-      // Generate Bloom filter based on the file data
-      const content = data.toString();
-      // Add content to the Bloom filter
-      bloomFilter.add(content);
-    });
-
-    fileStream.on('end', () => {
-      resolve(bloomFilter);
-    });
-
-    fileStream.on('error', (error) => {
-      reject(error);
-    });
-  });
-};
+};//end uploadFile
 
 module.exports = { uploadFile };
