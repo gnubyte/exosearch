@@ -9,6 +9,7 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const generalRoutes = require('./routes/generalRoutes');
 require('dotenv').config();
+const path = require('path')
 
 
 //write unit tests for these
@@ -27,9 +28,10 @@ mongoose.connection.on('error', console.error.bind(console, 'MongoDB connection 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-// Routes
+
 // Routes
 app.use(express.static('views'));
+app.use('/static', express.static(path.join(__dirname, 'public')));
 app.use('/api/auth', authRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/search', searchRoutes);
