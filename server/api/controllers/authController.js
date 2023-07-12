@@ -19,7 +19,7 @@ const setupAdministrator = async (req, res) => {
 
       try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        await User.create({ username, password: hashedPassword, email });
+        await User.create({ username, password: hashedPassword, email, role: 'admin' });
         setAdminCreated(); // Create the semaphore file
         res.sendFile(path.join(__dirname,'../views/adminCreated.html'));
       } catch (error) {

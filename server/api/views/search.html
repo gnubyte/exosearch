@@ -4,8 +4,6 @@
   <link rel="icon" type="image/x-icon" href="/static/Exosearch.ico">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <title>ES - Search and Retrieve Contents</title>
   <style>
@@ -13,9 +11,13 @@
       margin-top: 50px;
     }
   </style>
+   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
+   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
 </head>
 <body>
-  <div class="container">
+  <div id="app" class="container">
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
       <a class="navbar-brand" href="/">Exosearch</a>
       <div class="collapse navbar-collapse" id="navbarNav">
@@ -42,30 +44,34 @@
 
     <div class="row">
       <div class="col-md-4">
-        <form id="searchForm">
+        <form id="searchForm" @submit.prevent="searchContents">
           <div class="form-group">
             <label for="indexInput">Index:</label>
-            <input type="text" class="form-control" id="indexInput" placeholder="Enter index">
+            <input type="text" class="form-control" v-model="index" placeholder="Enter index">
           </div>
           <div class="form-group">
             <label for="sourceInput">Source: <i>(optional)</i></label>
-            <input type="text" class="form-control" id="sourceInput" placeholder="Enter source">
+            <input type="text" class="form-control" v-model="source" placeholder="Enter source">
           </div>
           <div class="form-group">
             <label for="hostInput">Host:<i>(optional)</i></label>
-            <input type="text" class="form-control" id="hostInput" placeholder="Enter host">
+            <input type="text" class="form-control" v-model="host" placeholder="Enter host">
           </div>
           <div class="form-group">
             <label for="keywordsInput">Keywords:<i>(optional)</i></label>
-            <input type="text" class="form-control" id="keywordsInput" placeholder="Enter keywords">
+            <input type="text" class="form-control" v-model="keywords" placeholder="Enter keywords">
           </div>
           <div class="form-group">
-            <label for="datetimeRangePicker">Date and Time Range:</label>
-            <input type="text" class="form-control" id="datetimeRangePicker" placeholder="Select date and time range">
+            <label for="startDateTimePicker">Start Date and Time:</label>
+            <input type="text" v-model="startDateTime" class="form-control" ref="startDateTimePicker" placeholder="Select start date and time">
+          </div>
+          <div class="form-group">
+            <label for="endDateTimePicker">End Date and Time:</label>
+            <input type="text" v-model="endDateTime" class="form-control" ref="endDateTimePicker" placeholder="Select end date and time">
           </div>
           <div class="form-group">
             <label for="linebreakerInput">Line Breaker (Regex):<i>(optional)</i></label>
-            <input type="text" class="form-control" id="linebreakerInput" placeholder="Enter line breaker regex">
+            <input type="text" class="form-control" v-model="linebreaker" placeholder="Enter line breaker regex">
           </div>
           <button type="submit" class="btn btn-primary">Search</button>
         </form>
@@ -75,13 +81,22 @@
         <table id="searchResultsTable" class="table" style="width:100%">
           <thead>
             <tr>
+              <th>Timestamp</th>
               <th>Event Number</th>
               <th>Event Data</th>
               <th>Host</th>
-              <th>Timestamp</th>
+              <th>Source</th>
             </tr>
           </thead>
-          <tbody></tbody>
+          <tbody>
+            <tr v-for="result in searchResults" :key="result.eventNumber">
+              <td>{{ result.addedAt }}</td>
+              <td>{{ result.eventNumber }}</td>
+              <td>{{ result.eventData }}</td>
+              <td>{{ result.host }}</td>
+              <td>{{ result.source }}</td>
+            </tr>
+          </tbody>
         </table>
       </div>
     </div>
@@ -98,11 +113,11 @@
           <tbody>
             <tr>
               <td>Total Pages</td>
-              <td id="totalPages"></td>
+              <td id="totalPages">{{ totalPages }}</td>
             </tr>
             <tr>
               <td>Total Events</td>
-              <td id="totalEvents"></td>
+              <td id="totalEvents">{{ totalEvents }}</td>
             </tr>
           </tbody>
         </table>
@@ -110,78 +125,86 @@
     </div>
   </div>
 
+  <!--<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.min.js"></script>-->
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
-  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+
 
   <script>
-    $(document).ready(function() {
-      // Initialize the DataTables table
-      const dataTable = $('#searchResultsTable').DataTable({
-        paging: true,
-        searching: true,
-        ordering: true,
-        lengthChange: false,
-        info: false,
-        columns: [
-          { data: 'eventNumber' },
-          { data: 'eventData' },
-          { data: 'host' },
-          { data: 'addedAt' },
-        ]
-      });
+    new Vue({
+      el: '#app',
+      data: {
+        index: '',
+        source: '',
+        host: '',
+        keywords: '',
+        startDateTime: '',
+        endDateTime: '',
+        searchResults: [],
+        fields: [
+          { key: 'addedAt', label: 'Timestamp' },
+          { key: 'eventNumber', label: 'Event Number' },
+          { key: 'eventData', label: 'Event Data' },
+          { key: 'host', label: 'Host' },
+          { key: 'source', label: 'Source' },
+        ],
+        currentPage: 1,
+        perPage: 10,
+        totalPages: 0,
+        totalEvents: 0,
+      },
+      methods: {
+        searchContents() {
+          const url = '/api/search/searchandretrieve';
+          const params = new URLSearchParams({
+            index: this.index,
+            source: this.source,
+            host: this.host,
+            keywords: this.keywords,
+            datetimeRange: `${this.startDateTime} - ${this.endDateTime}`,
+            linebreaker: this.linebreaker,
+          });
 
-      // Handle form submission
-      $('#searchForm').submit(function(event) {
-        event.preventDefault();
-
-        const index = $('#indexInput').val();
-        const source = $('#sourceInput').val();
-        const host = $('#hostInput').val();
-        const keywords = $('#keywordsInput').val().split(',');
-        const datetimeRange = $('#datetimeRangePicker').val();
-        const linebreaker = $('#linebreakerInput').val();
-
-        // Make API request and update the DataTables table
-        $.ajax({
-          url: '/api/search/searchandretrieve',
-          method: 'GET',
-          headers: {
-            "Authorization": "Bearer " + localStorage.getItem("token")
-          },
-          data: { index, source, host, keywords, datetimeRange, linebreaker },
-          success: function(data) {
-            // Clear the table
-            dataTable.clear().draw();
-
-            // Update the table with search results
-            dataTable.rows.add(data.events).draw();
-
-            // Update the metadata
-            $('#totalPages').text(data.totalPages);
-            $('#totalEvents').text(data.totalCount);
-          },
-          error: function() {
-            alert('Error searching and retrieving file contents.');
-          }
-        });
-      });
-
-      // Initialize the date and time range picker
-      $('#datetimeRangePicker').daterangepicker({
-        timePicker: true,
-        timePicker24Hour: true,
-        timePickerSeconds: true,
-        locale: {
-          format: 'YYYY-MM-DD HH:mm:ss',
-          separator: ' - ',
-          applyLabel: 'Apply',
-          cancelLabel: 'Cancel',
-          customRangeLabel: 'Custom Range',
+          fetch(`${url}?${params}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            },
+          })
+            .then(response => response.json())
+            .then(data => {
+              this.searchResults = data;
+              this.totalPages = Math.ceil(data.length / this.perPage);
+              this.totalEvents = data.length;
+            })
+            .catch(error => {
+              console.error('Error searching and retrieving file contents:', error);
+              alert('Error searching and retrieving file contents.');
+            });
         }
-      });
+      },
+      mounted() {
+        const startDateTimePicker = this.$refs.startDateTimePicker;
+        const endDateTimePicker = this.$refs.endDateTimePicker;
+        
+        const options = {
+          enableTime: true,
+          time_24hr: true,
+          dateFormat: 'Y-m-d H:i:S',
+          onClose: () => {
+            this.startDateTime = moment(startDateTimePicker.value).format('YYYY-MM-DD HH:mm:ss');
+            this.endDateTime = moment(endDateTimePicker.value).endOf('day').format('YYYY-MM-DD HH:mm:ss');
+          }
+        };
+
+        flatpickr(startDateTimePicker, options);
+        flatpickr(endDateTimePicker, options);
+      },
     });
   </script>
 </body>

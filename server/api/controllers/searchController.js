@@ -127,6 +127,41 @@ const fetchFilesContents = async (req, res) => {
   }
 
 }
+
+
+
+/*
+
+To analyze the time complexity of the `searchAndRetrieveContents` function, let's break it down into its major components:
+
+1. Retrieving Bloom filters from the MongoDB collection: This operation depends on the number of filters in the collection and has a complexity of O(N), where N is the number of filters.
+
+2. Performing search using Bloom filters: This step involves iterating over the filters and checking if the keywords are likely present using the Bloom filter. Since the Bloom filter size is typically small and constant, the complexity can be considered constant, O(1).
+
+3. Fetching file data from the TextModel collection: This operation depends on the number of matching filters and has a complexity of O(M), where M is the number of matching filters.
+
+4. Building query conditions for events: The complexity of this step depends on the number of keywords provided and has a complexity of O(K), where K is the number of keywords.
+
+5. Fetching files with matching IDs and query conditions: This operation depends on the number of files matching the query conditions and has a complexity of O(P), where P is the number of matching files.
+
+6. Extracting file content and splitting into events: This step involves iterating over the file content and splitting it into events. The complexity depends on the total number of events and can be considered O(E), where E is the total number of events.
+
+7. Calculating the total number of pages: This step involves dividing the total number of events by the limit and has a complexity of O(1).
+
+8. Applying pagination to the events: The complexity depends on the limit and has a complexity of O(L), where L is the limit.
+
+Considering all these components, the overall time complexity of the `searchAndRetrieveContents` function can be approximated as:
+
+O(N) + O(1) + O(M) + O(K) + O(P) + O(E) + O(1) + O(L)
+
+Simplifying the expression, we can approximate it as:
+
+O(N + M + K + P + E + L)
+
+Keep in mind that this analysis assumes that the individual database operations (e.g., finding filters, finding file data, querying events) have a time complexity that aligns with their typical behavior. The actual performance may vary based on factors such as database indexing, data size, and hardware resources.
+*/
+
+
 const searchAndRetrieveContents = async (req, res) => {
   try {
     const { index, source, host, keywords, datetimeRange, page = 1, limit = 100, linebreaker } = req.query;
@@ -171,11 +206,15 @@ const searchAndRetrieveContents = async (req, res) => {
 
       // Check if keywords are likely to be present using Bloom filter
       let isLikelyPresent = true;
-      for (const keyword of keywords) {
-        if (!bloomFilter.contains(keyword)) {
-          isLikelyPresent = false;
-          break;
+      if (keywords && Array.isArray(keywords)) {
+        for (const keyword of keywords) {
+          if (!bloomFilter.contains(keyword)) {
+            isLikelyPresent = false;
+            break;
+          }
         }
+      } else {
+        isLikelyPresent = false;
       }
 
       if (isLikelyPresent) {
@@ -186,16 +225,20 @@ const searchAndRetrieveContents = async (req, res) => {
           name: filter.name,
           addedAt: fileData.addedAt,
           id: fileData._id,
+          host: fileData.host,
+          source: fileData.source,
+          index: fileData.index,
         });
       }
     }
 
-    //console.log(matchingFiles)
     // Convert matching file IDs to an array
     const matchingFileIds = matchingFiles.map((file) => file.id);
     
     // Prepare the keyword filters
-    const keywordFilters = keywords.map(keyword => ({ "eventData": { $regex: keyword, $options: "i" } }));
+    const keywordFilters = (keywords && Array.isArray(keywords) && keywords.length > 0)
+      ? keywords.map(keyword => ({ "eventData": { $regex: keyword, $options: "i" } }))
+      : [];
 
     // Prepare the datetime filter
     const datetimeFilter = {
@@ -207,20 +250,18 @@ const searchAndRetrieveContents = async (req, res) => {
     const eventQueryConditions = {
       _id: { $in: matchingFileIds },
       addedAt: datetimeFilter,
-      $or: keywordFilters
     };
-    console.log(eventQueryConditions)
-    if (keywords.length === 0) {
-      delete eventQueryConditions.$or;
+
+    if (keywordFilters.length > 0) {
+      eventQueryConditions.$or = keywordFilters;
     }
 
     // Fetch the files with the matching IDs and query conditions
-    const files = await TextModel.find({ _id: { $in: matchingFileIds }, addedAt: datetimeFilter })
-  .sort({ addedAt: 1 })
-  .skip((page - 1) * limit)
-  .limit(limit);
+    const files = await TextModel.find(eventQueryConditions)
+      .sort({ addedAt: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
 
-    console.log(files)
     // Extract the file content from the files array
     const fileContent = files.map((file) => file.data.toString());
 
@@ -262,6 +303,9 @@ const searchAndRetrieveContents = async (req, res) => {
     res.status(500).send('Error searching and retrieving file contents.');
   }
 };
+
+
+
 
 
 module.exports = { searchRecords, fetchFilesContents, searchAndRetrieveContents };
