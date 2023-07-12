@@ -3,17 +3,16 @@ services:
   textstore-api:
     build:
       context: ./server
-      dockerfile: Dockerfile
+      dockerfile: Dockerfileprod
     ports:
       - '3000:3000'
     depends_on:
       - mongodb
     volumes:
-      - ./server:/app  # Mount the entire server directory for live reloading
       - ./semaphores:/app/semaphore
     environment:
      - MONGO_DB=mongodb://mongodb:27017/textstore
-     - ACCESS_TOKEN_SECRET=averysecrettoken
+     - ACCESS_TOKEN_SECRET=anExampleSecret
      - BLOOM_FILTER_SIZE=1024
   mongodb:
     image: mongo
@@ -29,6 +28,9 @@ services:
         - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
         - ME_CONFIG_BASICAUTH_USERNAME=adminlogin
         - ME_CONFIG_BASICAUTH_PASSWORD=Veryadminned
+    #    - ME_CONFIG_MONGODB_AUTH_DATABASE=admin
+    #    - ME_CONFIG_MONGODB_AUTH_USERNAME=${MONGO_ROOT_USER}
+    #    - ME_CONFIG_MONGODB_AUTH_PASSWORD=${MONGO_ROOT_PASSWORD}
     depends_on:
         - mongodb
     links:

@@ -71,7 +71,7 @@ const uploadFile = async (req, res) => {
       index: "default",
       name: req.file.originalname,
       data: fileBuffer,
-      host: req.ip,
+      host: req.body.host || req.ip,
       source: req.body.source || "default"
     });
     await file.save();

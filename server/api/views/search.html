@@ -17,26 +17,26 @@
 <body>
   <div class="container">
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="/">Exosearch</a>
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav mr-auto">
-            <li class="nav-item">
-              <a class="nav-link" href="/upload">Upload Files</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/search">Search</a>
-            </li>
-          </ul>
-          <ul class="navbar-nav">
-            <li class="nav-item">
-              <a class="nav-link" href="/settings"><i class="fas fa-cog">Settings</i></a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/logout">logout</a>
-            </li>
-          </ul>
-        </div>
-      </nav>
+      <a class="navbar-brand" href="/">Exosearch</a>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav mr-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="/upload">Upload Files</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/search">Search</a>
+          </li>
+        </ul>
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="/settings"><i class="fas fa-cog">Settings</i></a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/logout">logout</a>
+          </li>
+        </ul>
+      </div>
+    </nav>
 
     <h1>Search and Retrieve Contents</h1>
 
@@ -48,12 +48,16 @@
             <input type="text" class="form-control" id="indexInput" placeholder="Enter index">
           </div>
           <div class="form-group">
+            <label for="hostInput">Host:</label>
+            <input type="text" class="form-control" id="hostInput" placeholder="Enter host">
+          </div>
+          <div class="form-group">
             <label for="keywordsInput">Keywords:</label>
             <input type="text" class="form-control" id="keywordsInput" placeholder="Enter keywords">
           </div>
           <div class="form-group">
-            <label for="datetimeRangePicker">Date Range:</label>
-            <input type="text" class="form-control" id="datetimeRangePicker" placeholder="Select date range">
+            <label for="datetimeRangePicker">Date and Time Range:</label>
+            <input type="text" class="form-control" id="datetimeRangePicker" placeholder="Select date and time range">
           </div>
           <div class="form-group">
             <label for="linebreakerInput">Line Breaker (Regex):</label>
@@ -64,14 +68,15 @@
       </div>
 
       <div class="col-md-8">
-        <table id="searchResultsTable" class="table">
-          <thead><link rel="icon" type="image/x-icon" href="/static/Exosearch.ico">
+        <table id="searchResultsTable" class="table" style="width:100%">
+          <thead>
             <tr>
               <th>Event Number</th>
               <th>Event Data</th>
-              <th>Keywords Found</th>
+              <th>Host</th>
+              <th>Timestamp</th>
             </tr>
-          </thead><link rel="icon" type="image/x-icon" href="/static/Exosearch.ico">
+          </thead>
           <tbody></tbody>
         </table>
       </div>
@@ -80,12 +85,12 @@
     <div class="row mt-4">
       <div class="col-md-4">
         <table id="metadataTable" class="table">
-          <thead><link rel="icon" type="image/x-icon" href="/static/Exosearch.ico">
+          <thead>
             <tr>
               <th>Metadata</th>
               <th>Value</th>
             </tr>
-          </thead><link rel="icon" type="image/x-icon" href="/static/Exosearch.ico">
+          </thead>
           <tbody>
             <tr>
               <td>Total Pages</td>
@@ -94,10 +99,6 @@
             <tr>
               <td>Total Events</td>
               <td id="totalEvents"></td>
-            </tr>
-            <tr>
-              <td>Keywords Found in Events</td>
-              <td id="keywordsFound"></td>
             </tr>
           </tbody>
         </table>
@@ -116,14 +117,15 @@
       // Initialize the DataTables table
       const dataTable = $('#searchResultsTable').DataTable({
         paging: true,
-        searching: false,
+        searching: true,
         ordering: true,
         lengthChange: false,
         info: false,
         columns: [
           { data: 'eventNumber' },
           { data: 'eventData' },
-          { data: 'keywordsFound' },
+          { data: 'host' },
+          { data: 'addedAt' },
         ]
       });
 
@@ -132,6 +134,7 @@
         event.preventDefault();
 
         const index = $('#indexInput').val();
+        const host = $('#hostInput').val();
         const keywords = $('#keywordsInput').val().split(',');
         const datetimeRange = $('#datetimeRangePicker').val();
         const linebreaker = $('#linebreakerInput').val();
@@ -143,7 +146,7 @@
           headers: {
             "Authorization": "Bearer " + localStorage.getItem("token")
           },
-          data: { index, keywords, datetimeRange, linebreaker },
+          data: { index, host, keywords, datetimeRange, linebreaker },
           success: function(data) {
             // Clear the table
             dataTable.clear().draw();
@@ -154,7 +157,6 @@
             // Update the metadata
             $('#totalPages').text(data.totalPages);
             $('#totalEvents').text(data.totalCount);
-            $('#keywordsFound').text(data.keywordsFoundInEvents.join(', '));
           },
           error: function() {
             alert('Error searching and retrieving file contents.');
@@ -162,8 +164,27 @@
         });
       });
 
-      // Initialize the date range picker
-      $('#datetimeRangePicker').daterangepicker();
+      // Initialize the date and time range picker
+      $('#datetimeRangePicker').daterangepicker({
+        timePicker: true,
+        timePicker24Hour: true,
+        timePickerSeconds: true,
+        autoUpdateInput: false,
+        locale: {
+          format: 'YYYY-MM-DD HH:mm:ss',
+          cancelLabel: 'Clear',
+        },
+      });
+
+      // Update the date and time range input when selected
+      $('#datetimeRangePicker').on('apply.daterangepicker', function(ev, picker) {
+        $(this).val(picker.startDate.format('YYYY-MM-DD HH:mm:ss') + ' - ' + picker.endDate.format('YYYY-MM-DD HH:mm:ss'));
+      });
+
+      // Clear the date and time range input when cleared
+      $('#datetimeRangePicker').on('cancel.daterangepicker', function() {
+        $(this).val('');
+      });
     });
   </script>
 </body>

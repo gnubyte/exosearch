@@ -209,6 +209,10 @@ const searchAndRetrieveContents = async (req, res) => {
         const eventObj = {
           eventNumber: (page - 1) * limit + i * limit + j + 1,
           eventData: events[j],
+          index: index,
+          host: files[i].host,
+          source: files[i].source,
+          addedAt: files[i].addedAt,
         };
 
         // Check for keywords and add "keywordsFound" attribute if found
