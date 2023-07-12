@@ -127,30 +127,38 @@ const fetchFilesContents = async (req, res) => {
   }
 
 }
-
-
-
 const searchAndRetrieveContents = async (req, res) => {
   try {
-    const { index, keywords, datetimeRange, page = 1, limit = 100, linebreaker } = req.query;
+    const { index, source, host, keywords, datetimeRange, page = 1, limit = 100, linebreaker } = req.query;
 
     // Use a different collection if index is specified
     const collectionName = index ? `files_${index}` : 'files';
     const Collection = mongoose.connection.collection(collectionName);
 
+    // Build the query conditions
+    const queryConditions = {};
+
+    if (source) {
+      queryConditions.source = source;
+    }
+
+    if (host) {
+      queryConditions.host = host;
+    }
+
     // Retrieve Bloom filters from the MongoDB collection
-    const filters = await Collection.find({}).toArray();
-    console.log("filters")
-    console.log(filters)
+    const filters = await Collection.find(queryConditions).toArray();
+    console.log("filters");
+    console.log(filters);
     const matchingFiles = [];
 
     // Perform search using Bloom filters
     for (const filter of filters) {
       const bloomFilter = {
-        size: process.env.BLOOM_FILTER_SIZE,  //filter.bloomFilter.size ,
+        size: process.env.BLOOM_FILTER_SIZE,
         bitArray: filter.bloomFilter.bitArray,
         hashFunctions: filter.bloomFilter.hashFunctions.map((hashFnStr) => eval(`(${hashFnStr})`)),
-        contains: function(item) {
+        contains: function (item) {
           for (let i = 0; i < this.hashFunctions.length; i++) {
             const hash = this.hashFunctions[i](item);
             if (!this.bitArray[hash]) {
@@ -171,7 +179,7 @@ const searchAndRetrieveContents = async (req, res) => {
       }
 
       if (isLikelyPresent) {
-        // Fetch the file data from the File collection
+        // Fetch the file data from the TextModel collection
         const fileData = await TextModel.findOne({ name: filter.name });
 
         matchingFiles.push({
@@ -182,15 +190,37 @@ const searchAndRetrieveContents = async (req, res) => {
       }
     }
 
+    //console.log(matchingFiles)
     // Convert matching file IDs to an array
     const matchingFileIds = matchingFiles.map((file) => file.id);
+    
+    // Prepare the keyword filters
+    const keywordFilters = keywords.map(keyword => ({ "eventData": { $regex: keyword, $options: "i" } }));
 
-    // Fetch the files with the matching IDs
-    const files = await TextModel.find({ _id: { $in: matchingFileIds } })
-      .sort({ addedAt: 1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    // Prepare the datetime filter
+    const datetimeFilter = {
+      $gte: new Date(datetimeRange.split(' - ')[0]),
+      $lte: new Date(datetimeRange.split(' - ')[1])
+    };
 
+    // Build the query conditions for events
+    const eventQueryConditions = {
+      _id: { $in: matchingFileIds },
+      addedAt: datetimeFilter,
+      $or: keywordFilters
+    };
+    console.log(eventQueryConditions)
+    if (keywords.length === 0) {
+      delete eventQueryConditions.$or;
+    }
+
+    // Fetch the files with the matching IDs and query conditions
+    const files = await TextModel.find({ _id: { $in: matchingFileIds }, addedAt: datetimeFilter })
+  .sort({ addedAt: 1 })
+  .skip((page - 1) * limit)
+  .limit(limit);
+
+    console.log(files)
     // Extract the file content from the files array
     const fileContent = files.map((file) => file.data.toString());
 
@@ -198,7 +228,6 @@ const searchAndRetrieveContents = async (req, res) => {
     const lineBreakerPattern = linebreaker ? new RegExp(linebreaker) : /[\r\n]+/;
 
     const allEvents = [];
-    const keywordsFoundEvents = new Set();
 
     // Iterate over each file's content and split into events
     for (let i = 0; i < fileContent.length; i++) {
@@ -209,23 +238,9 @@ const searchAndRetrieveContents = async (req, res) => {
         const eventObj = {
           eventNumber: (page - 1) * limit + i * limit + j + 1,
           eventData: events[j],
-          index: index,
           host: files[i].host,
-          source: files[i].source,
           addedAt: files[i].addedAt,
         };
-
-        // Check for keywords and add "keywordsFound" attribute if found
-        if (keywords) {
-          const eventKeywords = [];
-          for (const keyword of keywords) {
-            if (events[j].includes(keyword)) {
-              eventKeywords.push(keyword);
-              keywordsFoundEvents.add((page - 1) * limit + i * limit + j + 1);
-            }
-          }
-          eventObj.keywordsFound = eventKeywords;
-        }
 
         allEvents.push(eventObj);
       }
@@ -240,7 +255,6 @@ const searchAndRetrieveContents = async (req, res) => {
     res.status(200).json({
       totalPages: totalPages,
       totalCount: allEvents.length,
-      keywordsFoundInEvents: Array.from(keywordsFoundEvents),
       events: paginatedEvents,
     });
   } catch (error) {
@@ -248,5 +262,6 @@ const searchAndRetrieveContents = async (req, res) => {
     res.status(500).send('Error searching and retrieving file contents.');
   }
 };
+
 
 module.exports = { searchRecords, fetchFilesContents, searchAndRetrieveContents };
