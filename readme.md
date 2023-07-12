@@ -1,6 +1,6 @@
 # Exosearch
 
-![Exosearch-logo](/readme-secreenshots/Exosearch.jpg?raw=true "Exosearch")
+![Exosearch-logo](/readme-secreenshots/Exosearch.jpg "Exosearch")
 
 A log aggregator and searching tool
 
