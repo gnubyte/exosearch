@@ -21,8 +21,8 @@
  const authenticateToken = (req, res, next) => {
    const authHeader = req.headers['authorization']; // Extract the authorization header from the request headers
    const token = authHeader && authHeader.split(' ')[1]; // Extract the token from the authorization header
-   console.log(token)
-   console.log(process.env.ACCESS_TOKEN_SECRET)
+   //console.log(token)
+   //console.log(process.env.ACCESS_TOKEN_SECRET)
    if (!token) {
      // If no token provided, return a 401 error
      return res.status(401).json({ error: 'No token provided.' });

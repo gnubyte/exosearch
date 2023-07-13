@@ -128,6 +128,42 @@ const fetchFilesContents = async (req, res) => {
 
 }
 
+const getIndexesWithRecordCount = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    // Get the distinct indexes from the collection
+    const distinctIndexes = await TextModel.distinct('index');
+
+    const indexesWithRecordCount = [];
+
+    // Iterate over each distinct index
+    for (const index of distinctIndexes) {
+      // Count the number of records per index
+      const recordCount = await TextModel.countDocuments({ index });
+
+      indexesWithRecordCount.push({
+        index,
+        recordCount,
+      });
+    }
+
+    // Calculate the total number of pages
+    const totalPages = Math.ceil(indexesWithRecordCount.length / limit);
+
+    // Get the paginated results based on the skip and limit values
+    const paginatedResults = indexesWithRecordCount.slice(skip, skip + limit);
+
+    res.status(200).json({
+      totalPages,
+      indexes: paginatedResults,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Error retrieving indexes with record count.');
+  }
+};
 
 
 /*
@@ -164,7 +200,12 @@ Keep in mind that this analysis assumes that the individual database operations 
 
 const searchAndRetrieveContents = async (req, res) => {
   try {
-    const { index, source, host, keywords, datetimeRange, page = 1, limit = 100, linebreaker } = req.query;
+
+    // Start the timer to measure the search duration
+    const searchStartTime = new Date();
+
+    var { index, source, host, keywords, datetimeRange, page = 1, limit = 100, linebreaker } = req.query;
+    console.log(`index: ${index}, source: ${source}, host: ${host}, keywords: ${keywords}, datetimeRange: ${datetimeRange}, page: ${page}, limit: ${limit}, linebreaker: ${linebreaker}`)
 
     // Use a different collection if index is specified
     const collectionName = index ? `files_${index}` : 'files';
@@ -172,6 +213,16 @@ const searchAndRetrieveContents = async (req, res) => {
 
     // Build the query conditions
     const queryConditions = {};
+    if (!linebreaker || linebreaker === undefined){
+      linebreaker = /[\r\n]+/;
+    }
+
+    if (typeof(limit) === 'string'){
+      limit = Number(limit)
+    }
+    if (typeof(page) === 'string'){
+      page = Number(page)
+    }
 
     if (source) {
       queryConditions.source = source;
@@ -186,7 +237,7 @@ const searchAndRetrieveContents = async (req, res) => {
     console.log("filters");
     console.log(filters);
     const matchingFiles = [];
-
+    console.log(matchingFiles)
     // Perform search using Bloom filters
     for (const filter of filters) {
       const bloomFilter = {
@@ -206,21 +257,37 @@ const searchAndRetrieveContents = async (req, res) => {
 
       // Check if keywords are likely to be present using Bloom filter
       let isLikelyPresent = true;
-      if (keywords && Array.isArray(keywords)) {
-        for (const keyword of keywords) {
-          if (!bloomFilter.contains(keyword)) {
+
+      //keywords might not have been passed into the http get
+      if(keywords){
+          if (keywords && Array.isArray(keywords)) {
+            for (const keyword of keywords) {
+              if (!bloomFilter.contains(keyword)) {
+                isLikelyPresent = false;
+                break;
+              }
+            }
+          } else {
             isLikelyPresent = false;
-            break;
           }
-        }
-      } else {
-        isLikelyPresent = false;
-      }
+          console.log(matchingFiles)
+          if (isLikelyPresent) {
+            // Fetch the file data from the TextModel collection
+            const fileData = await TextModel.findOne({ name: filter.name });
 
-      if (isLikelyPresent) {
-        // Fetch the file data from the TextModel collection
+            matchingFiles.push({
+              name: filter.name,
+              addedAt: fileData.addedAt,
+              id: fileData._id,
+              host: fileData.host,
+              source: fileData.source,
+              index: fileData.index,
+            });
+        }//end if keywords && Array.isArray(keywords)
+        
+      } //end if keywords
+      else{
         const fileData = await TextModel.findOne({ name: filter.name });
-
         matchingFiles.push({
           name: filter.name,
           addedAt: fileData.addedAt,
@@ -230,11 +297,11 @@ const searchAndRetrieveContents = async (req, res) => {
           index: fileData.index,
         });
       }
-    }
+    }//end for filter of filters
 
     // Convert matching file IDs to an array
     const matchingFileIds = matchingFiles.map((file) => file.id);
-    
+    console.log(`Matching file Ids: ${matchingFileIds}`)
     // Prepare the keyword filters
     const keywordFilters = (keywords && Array.isArray(keywords) && keywords.length > 0)
       ? keywords.map(keyword => ({ "eventData": { $regex: keyword, $options: "i" } }))
@@ -256,15 +323,16 @@ const searchAndRetrieveContents = async (req, res) => {
       eventQueryConditions.$or = keywordFilters;
     }
 
+    console.log('eventQueryConditions')
+    console.log(eventQueryConditions)
     // Fetch the files with the matching IDs and query conditions
     const files = await TextModel.find(eventQueryConditions)
-      .sort({ addedAt: 1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    .sort({ addedAt: 1 });
 
+    console.log('files')
+    console.log(files)
     // Extract the file content from the files array
     const fileContent = files.map((file) => file.data.toString());
-
     // Set the line breaker pattern (default: [\r\n]+)
     const lineBreakerPattern = linebreaker ? new RegExp(linebreaker) : /[\r\n]+/;
 
@@ -272,32 +340,41 @@ const searchAndRetrieveContents = async (req, res) => {
 
     // Iterate over each file's content and split into events
     for (let i = 0; i < fileContent.length; i++) {
-      const events = fileContent[i].split(lineBreakerPattern);
+    const events = fileContent[i].split(lineBreakerPattern);
+    // Iterate over each event and add keywords found if provided
+    for (let j = 0; j < events.length; j++) {
+      const eventObj = {
+        eventNumber: i * limit + j + 1,
+        eventData: events[j],
+        host: files[i].host,
+        source: files[i].source,
+        addedAt: files[i].addedAt,
+      };
 
-      // Iterate over each event and add keywords found if provided
-      for (let j = 0; j < events.length; j++) {
-        const eventObj = {
-          eventNumber: (page - 1) * limit + i * limit + j + 1,
-          eventData: events[j],
-          host: files[i].host,
-          addedAt: files[i].addedAt,
-        };
-
-        allEvents.push(eventObj);
-      }
+      allEvents.push(eventObj);
     }
+    }
+
+    // Apply pagination to the events
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const paginatedEvents = allEvents.slice(startIndex, endIndex);
 
     // Calculate the total number of pages based on the limit and event count
     const totalPages = Math.ceil(allEvents.length / limit);
 
-    // Apply pagination to the events
-    const paginatedEvents = allEvents.slice((page - 1) * limit, page * limit);
-
+    // Get the search duration in milliseconds
+    const searchEndTime = new Date();
+    const searchDuration = searchEndTime - searchStartTime;
+    console.log("paginatedEvents")
+    console.log(paginatedEvents)
     res.status(200).json({
-      totalPages: totalPages,
-      totalCount: allEvents.length,
-      events: paginatedEvents,
+    totalPages: totalPages,
+    totalCount: allEvents.length,
+    events: paginatedEvents,
+    searchDuration: searchDuration,
     });
+
   } catch (error) {
     console.error(error);
     res.status(500).send('Error searching and retrieving file contents.');
@@ -308,4 +385,4 @@ const searchAndRetrieveContents = async (req, res) => {
 
 
 
-module.exports = { searchRecords, fetchFilesContents, searchAndRetrieveContents };
+module.exports = { searchRecords, fetchFilesContents, searchAndRetrieveContents,  getIndexesWithRecordCount};
