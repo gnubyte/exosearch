@@ -2,7 +2,18 @@ const mongoose = require('mongoose');
 const TextModel = require('../models/textModel');
 const db = mongoose.connection.db;
 const crypto = require('crypto');
+const moment = require('moment');
 
+// Utility function to parse timestamp from event
+const parseTimestamp = (eventData) => {
+  const timestampRegex = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/;
+  const match = eventData.match(timestampRegex);
+  if (match) {
+    const timestamp = match[0];
+    return moment(timestamp).format('YYYY-MM-DD HH:mm:ss');
+  }
+  return null;
+};
 
 const searchRecords = async (req, res) => {
   try {
@@ -340,19 +351,24 @@ const searchAndRetrieveContents = async (req, res) => {
 
     // Iterate over each file's content and split into events
     for (let i = 0; i < fileContent.length; i++) {
-    const events = fileContent[i].split(lineBreakerPattern);
-    // Iterate over each event and add keywords found if provided
-    for (let j = 0; j < events.length; j++) {
-      const eventObj = {
-        eventNumber: i * limit + j + 1,
-        eventData: events[j],
-        host: files[i].host,
-        source: files[i].source,
-        addedAt: files[i].addedAt,
-      };
+      const events = fileContent[i].split(lineBreakerPattern);
 
-      allEvents.push(eventObj);
-    }
+      // Iterate over each event and add keywords found if provided
+      for (let j = 0; j < events.length; j++) {
+        const eventData = events[j];
+        const timestamp = parseTimestamp(eventData); // Parse timestamp from event
+
+        const eventObj = {
+          eventNumber: i * limit + j + 1,
+          eventData: eventData,
+          host: files[i].host,
+          source: files[i].source,
+          addedAt: files[i].addedAt,
+          timestamp: timestamp, // Include the parsed timestamp in the event object
+        };
+
+        allEvents.push(eventObj);
+      }
     }
 
     // Apply pagination to the events
