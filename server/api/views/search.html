@@ -76,7 +76,11 @@
     </nav>
 
     <h1>Search and Retrieve Contents</h1>
-
+    <div class="row">
+      <div class="col-md-12">
+        <div id="chartContainer" style="height: 400px; width: 100%;"></div>
+      </div>
+    </div>
     <div class="row">
       <div class="col-md-4">
         <form id="searchForm" @submit.prevent="searchContents">
@@ -154,7 +158,14 @@
           <thead>
             <tr>
               <th>
-                Timestamp
+                Event Timestamp
+                <span class="sorting-icons" @click="sortBy('timestamp')">
+                  <i class="fas fa-sort-up" v-if="sortKey === 'timestamp' && !reverseSort"></i>
+                  <i class="fas fa-sort-down" v-if="sortKey === 'timestamp' && reverseSort"></i>
+                </span>
+              </th>
+              <th>
+                File Added At Timestamp
                 <span class="sorting-icons" @click="sortBy('addedAt')">
                   <i class="fas fa-sort-up" v-if="sortKey === 'addedAt' && !reverseSort"></i>
                   <i class="fas fa-sort-down" v-if="sortKey === 'addedAt' && reverseSort"></i>
@@ -190,6 +201,7 @@
               <div class="spinner"></div>
             </div>
             <tr v-for="result in searchResults" :key="result.eventNumber">
+              <td>{{ result.timestamp }}</td>
               <td>{{ result.addedAt }}</td>
               <td>{{ result.eventNumber }}</td>
               <td>{{ result.eventData }}</td>
@@ -232,6 +244,7 @@
   <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+  <script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
 
 
   <script>
@@ -266,6 +279,50 @@
         serverSearchDuration: 0, // Store the serverSearchDuration search duration in milliseconds
       },
       methods: {
+        renderChart() {
+        if (this.searchResults.length === 0) {
+          return; // No search results, skip rendering the chart
+        }
+
+        const dataPoints = [];
+
+        // Count the number of events per timestamp
+        const countMap = {};
+        for (const result of this.searchResults) {
+          const timestamp = result.timestamp;
+          if (countMap[timestamp]) {
+            countMap[timestamp]++;
+          } else {
+            countMap[timestamp] = 1;
+          }
+        }
+
+        // Convert the count map to data points
+        for (const timestamp in countMap) {
+          const count = countMap[timestamp];
+          dataPoints.push({ x: new Date(timestamp), y: count });
+        }
+
+        const chart = new CanvasJS.Chart("chartContainer", {
+          zoomEnabled: true,
+          theme: "light2",
+          title: {
+            text: "Event Count by Timestamp",
+          },
+          axisX: {
+            valueFormatString: "YYYY-MM-DD HH:mm:ss",
+          },
+          axisY: {
+            title: "Event Count",
+          },
+          data: [{
+            type: "line",
+            dataPoints: dataPoints,
+          }],
+        });
+
+        chart.render();
+      },//end renderChart
         searchContents() {
           if (!this.startDateTime || !this.endDateTime || !this.index) {
             alert('Please fill in all required fields.');
@@ -307,6 +364,7 @@
               this.paginatedResults = this.searchResults.slice(startIndex, startIndex + this.perPage);
               // Hide the loading animation
               this.isLoading = false;
+              this.renderChart(); // Call the renderChart function after fetching search results
             })
             .catch(error => {
               console.error('Error searching and retrieving file contents:', error);
