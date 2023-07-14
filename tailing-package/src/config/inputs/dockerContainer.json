@@ -1,0 +1,6 @@
+{
+  "type": "docker",
+  "containername": "my-container",
+  "delimiter": "\n",
+  "output": "http://example.com/upload"
+}

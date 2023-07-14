@@ -3,6 +3,7 @@ const readline = require('readline');
 const uploadController = require('./uploadController');
 const chunkUpload = require('../utils/chunkUpload');
 const crypto = require('crypto');
+const Docker = require('dockerode');
 
 const log = (message) => {
   fs.appendFileSync('runtime.log', `${new Date().toISOString()} - ${message}\n`);
@@ -18,11 +19,15 @@ const startTailing = (inputConfigPath, outputConfigPath) => {
     const inputFilePath = `${inputConfigPath}/${inputFile}`;
     const inputConfig = JSON.parse(fs.readFileSync(inputFilePath, 'utf8'));
 
-    const outputFilePath = `${outputConfigPath}/${inputConfig.output}`;
-    const outputConfig = JSON.parse(fs.readFileSync(outputFilePath, 'utf8'));
+    if (inputConfig.type === 'file') {
+      const outputFilePath = `${outputConfigPath}/${inputConfig.output}`;
+      const outputConfig = JSON.parse(fs.readFileSync(outputFilePath, 'utf8'));
 
-    const processedData = loadProcessedData(inputConfig.file);
-    tailAndUploadFile(inputConfig.file, inputConfig.delimiter, outputConfig.servers, processedData);
+      const processedData = loadProcessedData(inputConfig.file);
+      tailAndUploadFile(inputConfig.file, inputConfig.delimiter, outputConfig.servers, processedData);
+    } else if (inputConfig.type === 'docker') {
+      tailDockerContainerLogs(inputConfig.containername, inputConfig.delimiter, inputConfig.output);
+    }
   }
 };
 
@@ -53,7 +58,7 @@ const tailAndUploadFile = (filePath, delimiter, servers, processedData) => {
     lineCount++;
 
     if (lineCount >= CHUNK_SIZE) {
-      const chunks = buffer.split(new RegExp(delimiter));
+      const chunks = buffer.split(delimiter);
       buffer = chunks.pop();
 
       const dataChunks = chunkUpload(chunks);
@@ -89,6 +94,67 @@ const tailAndUploadFile = (filePath, delimiter, servers, processedData) => {
     if (hash !== processedData) {
       saveProcessedData(filePath, hash);
     }
+  });
+};
+
+const tailDockerContainerLogs = (containerName, delimiter, output) => {
+  const docker = new Docker();
+  const container = docker.getContainer(containerName);
+
+  container.logs({ follow: true, stdout: true, stderr: true }, (err, stream) => {
+    if (err) {
+      console.error(`Failed to tail Docker container logs: ${err}`);
+      return;
+    }
+
+    const rl = readline.createInterface({ input: stream });
+
+    let buffer = '';
+    let lineCount = 0;
+
+    rl.on('line', async (line) => {
+      buffer += line + '\n';
+      lineCount++;
+
+      if (lineCount >= CHUNK_SIZE) {
+        const chunks = buffer.split(delimiter);
+        buffer = chunks.pop();
+
+        const dataChunks = chunkUpload(chunks);
+
+        const servers = [{ url: output }];
+        const keywords = [];
+
+        for (const server of servers) {
+          try {
+            await uploadChunks(dataChunks, server, keywords);
+            log(`Uploaded ${dataChunks.length} chunk(s) to server: ${server.url}`);
+          } catch (error) {
+            log(`Failed to upload data to server: ${server.url}`);
+            log(`Error: ${error.message}`);
+          }
+        }
+
+        lineCount = 0;
+      }
+    });
+
+    rl.on('close', async () => {
+      const dataChunks = chunkUpload([buffer]);
+
+      const servers = [{ url: output }];
+      const keywords = [];
+
+      for (const server of servers) {
+        try {
+          await uploadChunks(dataChunks, server, keywords);
+          log(`Uploaded last chunk to server: ${server.url}`);
+        } catch (error) {
+          log(`Failed to upload data to server: ${server.url}`);
+          log(`Error: ${error.message}`);
+        }
+      }
+    });
   });
 };
 
