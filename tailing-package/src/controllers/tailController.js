@@ -53,7 +53,7 @@ const tailAndUploadFile = (filePath, delimiter, servers, processedData) => {
     lineCount++;
 
     if (lineCount >= CHUNK_SIZE) {
-      const chunks = buffer.split(delimiter);
+      const chunks = buffer.split(new RegExp(delimiter));
       buffer = chunks.pop();
 
       const dataChunks = chunkUpload(chunks);

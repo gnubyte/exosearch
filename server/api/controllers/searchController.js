@@ -208,15 +208,13 @@ O(N + M + K + P + E + L)
 Keep in mind that this analysis assumes that the individual database operations (e.g., finding filters, finding file data, querying events) have a time complexity that aligns with their typical behavior. The actual performance may vary based on factors such as database indexing, data size, and hardware resources.
 */
 
-
 const searchAndRetrieveContents = async (req, res) => {
   try {
-
     // Start the timer to measure the search duration
     const searchStartTime = new Date();
 
     var { index, source, host, keywords, datetimeRange, page = 1, limit = 100, linebreaker } = req.query;
-    console.log(`index: ${index}, source: ${source}, host: ${host}, keywords: ${keywords}, datetimeRange: ${datetimeRange}, page: ${page}, limit: ${limit}, linebreaker: ${linebreaker}`)
+    console.log(`index: ${index}, source: ${source}, host: ${host}, keywords: ${keywords}, datetimeRange: ${datetimeRange}, page: ${page}, limit: ${limit}, linebreaker: ${linebreaker}`);
 
     // Use a different collection if index is specified
     const collectionName = index ? `files_${index}` : 'files';
@@ -224,15 +222,15 @@ const searchAndRetrieveContents = async (req, res) => {
 
     // Build the query conditions
     const queryConditions = {};
-    if (!linebreaker || linebreaker === undefined){
+    if (!linebreaker || linebreaker === undefined) {
       linebreaker = /[\r\n]+/;
     }
 
-    if (typeof(limit) === 'string'){
-      limit = Number(limit)
+    if (typeof limit === 'string') {
+      limit = Number(limit);
     }
-    if (typeof(page) === 'string'){
-      page = Number(page)
+    if (typeof page === 'string') {
+      page = Number(page);
     }
 
     if (source) {
@@ -248,7 +246,8 @@ const searchAndRetrieveContents = async (req, res) => {
     console.log("filters");
     console.log(filters);
     const matchingFiles = [];
-    console.log(matchingFiles)
+    console.log(matchingFiles);
+
     // Perform search using Bloom filters
     for (const filter of filters) {
       const bloomFilter = {
@@ -269,35 +268,33 @@ const searchAndRetrieveContents = async (req, res) => {
       // Check if keywords are likely to be present using Bloom filter
       let isLikelyPresent = true;
 
-      //keywords might not have been passed into the http get
-      if(keywords){
-          if (keywords && Array.isArray(keywords)) {
-            for (const keyword of keywords) {
-              if (!bloomFilter.contains(keyword)) {
-                isLikelyPresent = false;
-                break;
-              }
+      // keywords might not have been passed into the HTTP GET
+      if (keywords) {
+        if (Array.isArray(keywords)) {
+          for (const keyword of keywords) {
+            if (!bloomFilter.contains(keyword)) {
+              isLikelyPresent = false;
+              break;
             }
-          } else {
-            isLikelyPresent = false;
           }
-          console.log(matchingFiles)
-          if (isLikelyPresent) {
-            // Fetch the file data from the TextModel collection
-            const fileData = await TextModel.findOne({ name: filter.name });
+        } else {
+          isLikelyPresent = false;
+        }
+        console.log(matchingFiles);
+        if (isLikelyPresent) {
+          // Fetch the file data from the TextModel collection
+          const fileData = await TextModel.findOne({ name: filter.name });
 
-            matchingFiles.push({
-              name: filter.name,
-              addedAt: fileData.addedAt,
-              id: fileData._id,
-              host: fileData.host,
-              source: fileData.source,
-              index: fileData.index,
-            });
-        }//end if keywords && Array.isArray(keywords)
-        
-      } //end if keywords
-      else{
+          matchingFiles.push({
+            name: filter.name,
+            addedAt: fileData.addedAt,
+            id: fileData._id,
+            host: fileData.host,
+            source: fileData.source,
+            index: fileData.index,
+          });
+        }
+      } else {
         const fileData = await TextModel.findOne({ name: filter.name });
         matchingFiles.push({
           name: filter.name,
@@ -308,15 +305,11 @@ const searchAndRetrieveContents = async (req, res) => {
           index: fileData.index,
         });
       }
-    }//end for filter of filters
+    }
 
     // Convert matching file IDs to an array
     const matchingFileIds = matchingFiles.map((file) => file.id);
-    console.log(`Matching file Ids: ${matchingFileIds}`)
-    // Prepare the keyword filters
-    const keywordFilters = (keywords && Array.isArray(keywords) && keywords.length > 0)
-      ? keywords.map(keyword => ({ "eventData": { $regex: keyword, $options: "i" } }))
-      : [];
+    console.log(`Matching file Ids: ${matchingFileIds}`);
 
     // Prepare the datetime filter
     const datetimeFilter = {
@@ -324,26 +317,13 @@ const searchAndRetrieveContents = async (req, res) => {
       $lte: new Date(datetimeRange.split(' - ')[1])
     };
 
-    // Build the query conditions for events
-    const eventQueryConditions = {
-      _id: { $in: matchingFileIds },
-      addedAt: datetimeFilter,
-    };
-
-    if (keywordFilters.length > 0) {
-      eventQueryConditions.$or = keywordFilters;
-    }
-
-    console.log('eventQueryConditions')
-    console.log(eventQueryConditions)
     // Fetch the files with the matching IDs and query conditions
-    const files = await TextModel.find(eventQueryConditions)
-    .sort({ addedAt: 1 });
+    const files = await TextModel.find({ _id: { $in: matchingFileIds }, addedAt: datetimeFilter })
+      .sort({ addedAt: 1 });
 
-    console.log('files')
-    console.log(files)
     // Extract the file content from the files array
     const fileContent = files.map((file) => file.data.toString());
+
     // Set the line breaker pattern (default: [\r\n]+)
     const lineBreakerPattern = linebreaker ? new RegExp(linebreaker) : /[\r\n]+/;
 
@@ -371,32 +351,40 @@ const searchAndRetrieveContents = async (req, res) => {
       }
     }
 
+    // Filter events by keyword (if provided)
+    const filteredEvents = keywords
+      ? allEvents.filter(event => {
+          const keywordFilters = Array.isArray(keywords)
+            ? keywords.map(keyword => new RegExp(keyword, 'i'))
+            : [new RegExp(keywords, 'i')];
+          return keywordFilters.some(filter => filter.test(event.eventData)) &&
+            event.addedAt >= datetimeFilter.$gte && event.addedAt <= datetimeFilter.$lte;
+        })
+      : allEvents.filter(event => event.addedAt >= datetimeFilter.$gte && event.addedAt <= datetimeFilter.$lte);
+
     // Apply pagination to the events
     const startIndex = (page - 1) * limit;
     const endIndex = page * limit;
-    const paginatedEvents = allEvents.slice(startIndex, endIndex);
+    const paginatedEvents = filteredEvents.slice(startIndex, endIndex);
 
     // Calculate the total number of pages based on the limit and event count
-    const totalPages = Math.ceil(allEvents.length / limit);
+    const totalPages = Math.ceil(filteredEvents.length / limit);
 
     // Get the search duration in milliseconds
     const searchEndTime = new Date();
     const searchDuration = searchEndTime - searchStartTime;
-    console.log("paginatedEvents")
-    console.log(paginatedEvents)
-    res.status(200).json({
-    totalPages: totalPages,
-    totalCount: allEvents.length,
-    events: paginatedEvents,
-    searchDuration: searchDuration,
-    });
 
+    res.status(200).json({
+      totalPages: totalPages,
+      totalCount: filteredEvents.length,
+      events: paginatedEvents,
+      searchDuration: searchDuration,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).send('Error searching and retrieving file contents.');
   }
 };
-
 
 
 
