@@ -1,5 +1,7 @@
 # Exosearch
 
+# A PoC for a kinder alternative to Splunk/ELK
+
 ![Screenshot](readme-screenshots/Exosearch.jpg)
 
 A log aggregator and searching tool
