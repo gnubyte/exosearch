@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "description": "API for storing large unstructured time series stores of text",
     "scripts": {
-        "start": "node api/index.js"
+        "start": "node /app/api/index.js"
     },
     "dependencies": {
         "bcrypt": "^5.1.0",

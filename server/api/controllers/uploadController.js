@@ -93,4 +93,39 @@ const uploadFile = async (req, res) => {
   }
 };//end uploadFile
 
+
+const addEvent = async (req, res) => {
+  try {
+    const { index, host, source, data } = req.body;
+
+    // Use a different collection if index is specified
+    const collectionName = index ? `data_${index}` : 'files';
+    const Collection = mongoose.connection.collection(collectionName);
+
+
+    //const file = new TextModel({
+    //  index: "default",
+    //  name: req.file.originalname,
+    //  data: fileBuffer,
+    //  host: req.body.host || req.ip,
+    //  source: req.body.source || "default"
+    //});
+    //await file.save();
+
+    // Store Bloom filter in a separate collection
+    //await Collection.insertOne({
+    //  name: req.file.originalname,
+    //  host: host,
+    //  source: source,
+    //  data: data,
+    //  addedAt: Date.now()
+    //});
+
+    res.status(200).send('File uploaded successfully!');
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Error uploading file.');
+  }
+}
+
 module.exports = { uploadFile };

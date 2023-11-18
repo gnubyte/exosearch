@@ -5,17 +5,17 @@ FROM node:20.2.0-alpine AS builder
 WORKDIR /app
 
 # Copy package.json and package-lock.json
-COPY package.json package-lock.json ./
-COPY .env ./
+COPY package.json .
+COPY .env .
+COPY . .
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install
 
 # Copy application files
-COPY ./api ./api
 
 # Expose port
 EXPOSE 3000
 
 # Start the application with nodemon
-CMD ["npx", "nodemon", "npm", "start"]
+CMD ["npm", "start"]
