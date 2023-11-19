@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const TextModel = require('../models/textModel');
 const db = mongoose.connection.db;
 const crypto = require('crypto');
+const { SourceMap } = require('module');
 
 // Define Bloom filter parameters
 const bloomFilterSize = process.env.BLOOM_FILTER_SIZE;
@@ -102,7 +103,12 @@ const addEvent = async (req, res) => {
     const collectionName = index ? `data_${index}` : 'files';
     const Collection = mongoose.connection.collection(collectionName);
 
-
+    const insertedRecord = await Collection.insertOne({
+      host: host,
+      addedAt: Date.now(),
+      source: source,
+      data:data
+    })
     //const file = new TextModel({
     //  index: "default",
     //  name: req.file.originalname,
@@ -121,11 +127,11 @@ const addEvent = async (req, res) => {
     //  addedAt: Date.now()
     //});
 
-    res.status(200).send('File uploaded successfully!');
+    res.status(200).send('Data uploaded successfully');
   } catch (error) {
     console.error(error);
     res.status(500).send('Error uploading file.');
   }
 }
 
-module.exports = { uploadFile };
+module.exports = { uploadFile,addEvent };

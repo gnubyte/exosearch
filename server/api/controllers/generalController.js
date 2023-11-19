@@ -1,7 +1,15 @@
 const path = require('path');
 
 const dashboardView = async (req, res) => {
-    res.sendFile(path.join(__dirname, '../views/dashboard.html'));
+    res.render('../api/views/dashboard');
+}
+
+const indexesView = async (req, res) => {
+    res.render('../api/views/indexes');
+}
+
+const forwardersView = async (req, res) => {
+    res.render('../api/views/forwarders');
 }
 const landingView = async (req, res) => {
     res.sendFile(path.join(__dirname, '../views/landing.html'));
@@ -25,6 +33,8 @@ module.exports = {
     loginView,
     logoutView,
     uploadView,
-    searchView
+    searchView,
+    forwardersView,
+    indexesView
 };
 
