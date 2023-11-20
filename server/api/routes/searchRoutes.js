@@ -199,5 +199,6 @@ router.get('/file', authenticateToken, searchController.fetchFilesContents);
  *         description: Error searching and retrieving file contents.
  */
 router.get('/searchandretrieve', authenticateToken, searchController.searchAndRetrieveContents);
+router.get('/searchevents', authenticateToken, searchController.searchEvents);
 
 module.exports = router;

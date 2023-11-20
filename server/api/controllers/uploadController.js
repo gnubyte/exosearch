@@ -109,24 +109,6 @@ const addEvent = async (req, res) => {
       source: source,
       data:data
     })
-    //const file = new TextModel({
-    //  index: "default",
-    //  name: req.file.originalname,
-    //  data: fileBuffer,
-    //  host: req.body.host || req.ip,
-    //  source: req.body.source || "default"
-    //});
-    //await file.save();
-
-    // Store Bloom filter in a separate collection
-    //await Collection.insertOne({
-    //  name: req.file.originalname,
-    //  host: host,
-    //  source: source,
-    //  data: data,
-    //  addedAt: Date.now()
-    //});
-
     res.status(200).send('Data uploaded successfully');
   } catch (error) {
     console.error(error);

@@ -17,7 +17,11 @@ const parseTimestamp = (eventData) => {
 
 const searchRecords = async (req, res) => {
   try {
-    const { index, keywords, datetimeRange } = req.query;
+    const {
+      index,
+      keywords,
+      datetimeRange
+    } = req.query;
 
     // Use a different collection if index is specified
     const collectionName = index ? `files_${index}` : 'files';
@@ -28,22 +32,22 @@ const searchRecords = async (req, res) => {
 
     const matchingFiles = [];
 
-       // Perform search using Bloom filters
-       for (const filter of filters) {
-        const bloomFilter = {
-          size: filter.bloomFilter.size,
-          bitArray: filter.bloomFilter.bitArray,
-          hashFunctions: filter.bloomFilter.hashFunctions.map((hashFnStr) => eval(`(${hashFnStr})`)),
-          contains:  (item) => {
-              for (let i = 0; i < this.numHashFunctions; i++) {
-                const hash = this.hashFunctions[i](item);
-                if (!this.bitArray[hash]) {
-                  return false;
-                }
-              }
-              return true;
+    // Perform search using Bloom filters
+    for (const filter of filters) {
+      const bloomFilter = {
+        size: filter.bloomFilter.size,
+        bitArray: filter.bloomFilter.bitArray,
+        hashFunctions: filter.bloomFilter.hashFunctions.map((hashFnStr) => eval(`(${hashFnStr})`)),
+        contains: (item) => {
+          for (let i = 0; i < this.numHashFunctions; i++) {
+            const hash = this.hashFunctions[i](item);
+            if (!this.bitArray[hash]) {
+              return false;
             }
-        };
+          }
+          return true;
+        }
+      };
 
       // Check if keywords are likely to be present using Bloom filter
       let isLikelyPresent = true;
@@ -56,7 +60,9 @@ const searchRecords = async (req, res) => {
 
       if (isLikelyPresent) {
         // Fetch the file data from the File collection
-        const fileData = await File.findOne({ name: filter.name });
+        const fileData = await File.findOne({
+          name: filter.name
+        });
 
         matchingFiles.push({
           name: filter.name,
@@ -76,13 +82,21 @@ const searchRecords = async (req, res) => {
 
 const fetchFilesContents = async (req, res) => {
   try {
-    const { page = 1, limit = 100, ids, linebreaker, keywords } = req.query;
+    const {
+      page = 1, limit = 100, ids, linebreaker, keywords
+    } = req.query;
 
     // Convert ids to an array
     const idArray = ids.split(',');
 
     // Fetch the files with the provided ids
-    const files = await File.find({ _id: { $in: idArray } }).sort({ addedAt: 1 });
+    const files = await File.find({
+      _id: {
+        $in: idArray
+      }
+    }).sort({
+      addedAt: 1
+    });
 
     // Extract the file content from the files array
     const fileContent = files.map((file) => file.data.toString());
@@ -141,7 +155,9 @@ const fetchFilesContents = async (req, res) => {
 
 const getIndexesWithRecordCount = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const {
+      page = 1, limit = 10
+    } = req.query;
     const skip = (page - 1) * limit;
 
     // Get the distinct indexes from the collection
@@ -152,7 +168,9 @@ const getIndexesWithRecordCount = async (req, res) => {
     // Iterate over each distinct index
     for (const index of distinctIndexes) {
       // Count the number of records per index
-      const recordCount = await TextModel.countDocuments({ index });
+      const recordCount = await TextModel.countDocuments({
+        index
+      });
 
       indexesWithRecordCount.push({
         index,
@@ -177,43 +195,81 @@ const getIndexesWithRecordCount = async (req, res) => {
 };
 
 
-/*
+const searchEvents = async (req, res) => {
 
-To analyze the time complexity of the `searchAndRetrieveContents` function, let's break it down into its major components:
+  //TODO: replace linebreaker with regex extracts
+  //since events will just be uploaded to the server/saved to disk
+  //linebreakers are irrelevant
+  //we should switch the focus to the value extracted from the fields instead
+  //let the linebreakers be on the forwarder inputs for how to break apart the events
+  try {
+    const {
+      index = "*",
+      source = "*",
+      host = "*",
+      keywords = [],
+      startDateTime = "*",
+      endDateTime = "*",
+      page = 1,
+      limit = 100,
+      linebreaker = "[\r\n]"
+    } = req.query;
 
-1. Retrieving Bloom filters from the MongoDB collection: This operation depends on the number of filters in the collection and has a complexity of O(N), where N is the number of filters.
+    const skipAmount = (page - 1) * limit;
+    const collectionName = index ? `data_${index}` : 'files';
+    const Collection = mongoose.connection.collection(collectionName);
 
-2. Performing search using Bloom filters: This step involves iterating over the filters and checking if the keywords are likely present using the Bloom filter. Since the Bloom filter size is typically small and constant, the complexity can be considered constant, O(1).
+    // Create an object to represent the query conditions
+    const queryConditions = {
+      source: source !== '*' ? source : undefined,
+      host: host !== '*' ? host : undefined,
+      addedAt: {
+        $gte: startDateTime !== '*' ? startDateTime : undefined,
+        $lte: endDateTime !== '*' ? endDateTime : undefined
+      },
+    };
 
-3. Fetching file data from the TextModel collection: This operation depends on the number of matching filters and has a complexity of O(M), where M is the number of matching filters.
+    if (keywords != []) {
+      const regexPattern = new RegExp(keywords.map(word => `.*${word}.*`).join('|'), 'i');
+      queryConditions.data = { $regex: regexPattern };
+    }
 
-4. Building query conditions for events: The complexity of this step depends on the number of keywords provided and has a complexity of O(K), where K is the number of keywords.
+    // Remove properties with value '*'
+    Object.keys(queryConditions).forEach(key => queryConditions[key] === undefined && delete queryConditions[key]);
+    if (startDateTime == "*" && endDateTime == "*"){
+      delete queryConditions.addedAt
+    }
+    console.log(queryConditions)
+    const results = await Collection.find(queryConditions)
+      .skip(skipAmount)
+      .limit(limit)
+      .toArray();
 
-5. Fetching files with matching IDs and query conditions: This operation depends on the number of files matching the query conditions and has a complexity of O(P), where P is the number of matching files.
+    console.log(results);
+    console.log('got here at least');
+    res.status(200).json(results);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Error searching and retrieving file contents.');
+  }
+};
 
-6. Extracting file content and splitting into events: This step involves iterating over the file content and splitting it into events. The complexity depends on the total number of events and can be considered O(E), where E is the total number of events.
-
-7. Calculating the total number of pages: This step involves dividing the total number of events by the limit and has a complexity of O(1).
-
-8. Applying pagination to the events: The complexity depends on the limit and has a complexity of O(L), where L is the limit.
-
-Considering all these components, the overall time complexity of the `searchAndRetrieveContents` function can be approximated as:
-
-O(N) + O(1) + O(M) + O(K) + O(P) + O(E) + O(1) + O(L)
-
-Simplifying the expression, we can approximate it as:
-
-O(N + M + K + P + E + L)
-
-Keep in mind that this analysis assumes that the individual database operations (e.g., finding filters, finding file data, querying events) have a time complexity that aligns with their typical behavior. The actual performance may vary based on factors such as database indexing, data size, and hardware resources.
-*/
 
 const searchAndRetrieveContents = async (req, res) => {
   try {
     // Start the timer to measure the search duration
     const searchStartTime = new Date();
 
-    var { index, source, host, keywords, datetimeRange, page = 1, limit = 100, linebreaker } = req.query;
+    var {
+      index,
+      source,
+      host,
+      keywords,
+      datetimeRange,
+      page = 1,
+      limit = 100,
+      linebreaker
+    } = req.query;
     console.log(`index: ${index}, source: ${source}, host: ${host}, keywords: ${keywords}, datetimeRange: ${datetimeRange}, page: ${page}, limit: ${limit}, linebreaker: ${linebreaker}`);
 
     // Use a different collection if index is specified
@@ -283,7 +339,9 @@ const searchAndRetrieveContents = async (req, res) => {
         console.log(matchingFiles);
         if (isLikelyPresent) {
           // Fetch the file data from the TextModel collection
-          const fileData = await TextModel.findOne({ name: filter.name });
+          const fileData = await TextModel.findOne({
+            name: filter.name
+          });
 
           matchingFiles.push({
             name: filter.name,
@@ -295,7 +353,9 @@ const searchAndRetrieveContents = async (req, res) => {
           });
         }
       } else {
-        const fileData = await TextModel.findOne({ name: filter.name });
+        const fileData = await TextModel.findOne({
+          name: filter.name
+        });
         matchingFiles.push({
           name: filter.name,
           addedAt: fileData.addedAt,
@@ -318,8 +378,15 @@ const searchAndRetrieveContents = async (req, res) => {
     };
 
     // Fetch the files with the matching IDs and query conditions
-    const files = await TextModel.find({ _id: { $in: matchingFileIds }, addedAt: datetimeFilter })
-      .sort({ addedAt: 1 });
+    const files = await TextModel.find({
+        _id: {
+          $in: matchingFileIds
+        },
+        addedAt: datetimeFilter
+      })
+      .sort({
+        addedAt: 1
+      });
 
     // Extract the file content from the files array
     const fileContent = files.map((file) => file.data.toString());
@@ -352,15 +419,15 @@ const searchAndRetrieveContents = async (req, res) => {
     }
 
     // Filter events by keyword (if provided)
-    const filteredEvents = keywords
-      ? allEvents.filter(event => {
-          const keywordFilters = Array.isArray(keywords)
-            ? keywords.map(keyword => new RegExp(keyword, 'i'))
-            : [new RegExp(keywords, 'i')];
-          return keywordFilters.some(filter => filter.test(event.eventData)) &&
-            event.addedAt >= datetimeFilter.$gte && event.addedAt <= datetimeFilter.$lte;
-        })
-      : allEvents.filter(event => event.addedAt >= datetimeFilter.$gte && event.addedAt <= datetimeFilter.$lte);
+    const filteredEvents = keywords ?
+      allEvents.filter(event => {
+        const keywordFilters = Array.isArray(keywords) ?
+          keywords.map(keyword => new RegExp(keyword, 'i')) :
+          [new RegExp(keywords, 'i')];
+        return keywordFilters.some(filter => filter.test(event.eventData)) &&
+          event.addedAt >= datetimeFilter.$gte && event.addedAt <= datetimeFilter.$lte;
+      }) :
+      allEvents.filter(event => event.addedAt >= datetimeFilter.$gte && event.addedAt <= datetimeFilter.$lte);
 
     // Apply pagination to the events
     const startIndex = (page - 1) * limit;
@@ -388,5 +455,10 @@ const searchAndRetrieveContents = async (req, res) => {
 
 
 
-
-module.exports = { searchRecords, fetchFilesContents, searchAndRetrieveContents,  getIndexesWithRecordCount};
+module.exports = {
+  searchRecords,
+  fetchFilesContents,
+  searchAndRetrieveContents,
+  getIndexesWithRecordCount,
+  searchEvents
+};

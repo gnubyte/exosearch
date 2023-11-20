@@ -11,6 +11,10 @@ const indexesView = async (req, res) => {
 const forwardersView = async (req, res) => {
     res.render('../api/views/forwarders');
 }
+
+const settingsView = async (req, res) => {
+    res.render('../api/views/settings');
+}
 const landingView = async (req, res) => {
     res.sendFile(path.join(__dirname, '../views/landing.html'));
 }
@@ -24,7 +28,7 @@ const uploadView = async (req, res) => {
     res.sendFile(path.join(__dirname, '../views/upload.html'));
 }
 const searchView = async (req, res) => {
-    res.sendFile(path.join(__dirname, '../views/search.html'));
+    res.render('../api/views/search')
 }
 
 module.exports = {
@@ -35,6 +39,7 @@ module.exports = {
     uploadView,
     searchView,
     forwardersView,
-    indexesView
+    indexesView,
+    settingsView
 };
 

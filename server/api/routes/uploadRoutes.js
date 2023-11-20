@@ -58,6 +58,6 @@ const router = express.Router();
  */
 
 router.post('/upload', authenticateToken, upload.single('file'), uploadController.uploadFile);
-//router.post('/uploadevent', authenticateToken, uploadController.addEvent);
+router.post('/uploadevent', authenticateToken, uploadController.addEvent);
 
 module.exports = router;
