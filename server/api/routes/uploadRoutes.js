@@ -7,11 +7,14 @@ const upload = multer({ storage: storage });
 
 const router = express.Router();
 
+
+
+router.post('/upload', authenticateToken, upload.single('file'), uploadController.uploadFile);
 /**
  * @swagger
- * /upload:
+ * /uploadevent:
  *   post:
- *     summary: Upload a file to exofile and generate the bloom filters for its data.
+ *     summary: Upload a single lines events to Exosearch
  *     tags:
  *       - Upload
  *     security:
@@ -28,9 +31,13 @@ const router = express.Router();
  *               type: string
  *             source:
  *               type: string
+ *             host:
+ *               type: string
  *           example:
- *              index: debian-cloud-inits
- *              source: file-name
+ *              index: dpkglog
+ *              source: dpkg.pkg
+ *              data: 2023-11-18 06:38:21 status unpacked intel-microcode:amd64 3.20230808.1~deb12u1
+ *              host: server001
  *     requestBody:
  *       required: true
  *       content:
@@ -40,10 +47,16 @@ const router = express.Router();
  *             properties:
  *               index:
  *                 type: string
- *                 description: The index to use for storing the file (optional).
- *               file:
- *                 type: file
- *                 description: The file to upload.
+ *                 description: The index to use for storing the file.
+ *               source:
+ *                 type: string
+ *                 description: Usually the filename the event came from.
+ *               data:
+ *                 type: string
+ *                 description: The text-data event contents to send to the server.
+ *               host:
+ *                 type: string
+ *                 description: The server name the event came from.
  *             required:
  *               - file
  *     responses:
@@ -56,8 +69,6 @@ const router = express.Router();
  *       '500':
  *         description: Internal server error. An error occurred while uploading the file.
  */
-
-router.post('/upload', authenticateToken, upload.single('file'), uploadController.uploadFile);
 router.post('/uploadevent', authenticateToken, uploadController.addEvent);
 
 module.exports = router;

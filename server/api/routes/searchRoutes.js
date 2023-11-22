@@ -118,9 +118,9 @@ router.get('/file', authenticateToken, searchController.fetchFilesContents);
 
 /**
  * @swagger
- * /api/search/searchAndRetrieveContents:
+ * /api/search/searchevents:
  *   get:
- *     summary: Search and retrieve file contents
+ *     summary: Search and retrieve event data
  *     description: |
  *       Searches for files based on the provided parameters and retrieves their contents in a paginated manner.
  *     parameters:

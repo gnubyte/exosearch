@@ -1,6 +1,7 @@
 version: '3'
 services:
-  textstore-api:
+  exosearch:
+    container_name: exosearch
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -19,7 +20,7 @@ services:
     ports:
       - '27017:27017'
     volumes:
-      - ./mongo-data:/data/db
+      - ./mongo-data:/var/lib/postgresql/data
   mongo-express:
     image: mongo-express
     environment:

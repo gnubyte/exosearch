@@ -100,7 +100,7 @@ const addEvent = async (req, res) => {
     const { index, host, source, data } = req.body;
 
     // Use a different collection if index is specified
-    const collectionName = index ? `data_${index}` : 'files';
+    const collectionName = index ? `data_${index}` : 'data_default';
     const Collection = mongoose.connection.collection(collectionName);
 
     const insertedRecord = await Collection.insertOne({

@@ -214,7 +214,9 @@ const searchEvents = async (req, res) => {
       limit = 100,
       linebreaker = "[\r\n]"
     } = req.query;
-
+    if (index == "*"){
+      res.status(400).json("index field must have a valid name")
+    }
     const skipAmount = (page - 1) * limit;
     const collectionName = index ? `data_${index}` : 'files';
     const Collection = mongoose.connection.collection(collectionName);
@@ -239,14 +241,13 @@ const searchEvents = async (req, res) => {
     if (startDateTime == "*" && endDateTime == "*"){
       delete queryConditions.addedAt
     }
-    console.log(queryConditions)
+    //console.log(queryConditions)
     const results = await Collection.find(queryConditions)
       .skip(skipAmount)
       .limit(limit)
       .toArray();
 
-    console.log(results);
-    console.log('got here at least');
+    //console.log(results);
     res.status(200).json(results);
   } catch (error) {
     console.error(error);
@@ -256,6 +257,7 @@ const searchEvents = async (req, res) => {
 
 
 const searchAndRetrieveContents = async (req, res) => {
+  //depreciated
   try {
     // Start the timer to measure the search duration
     const searchStartTime = new Date();
